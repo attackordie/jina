@@ -343,6 +343,7 @@ class GrpcConnectionPool:
             if not self._initialized:
                 await self._init_stubs()
             request_type = type(requests[0])
+
             if request_type == DataRequest and len(requests) == 1:
                 if self.single_data_stub:
                     call_result = self.single_data_stub.process_single_data(
@@ -672,6 +673,7 @@ class GrpcConnectionPool:
         shard_id: Optional[int] = None,
         polling_type: PollingType = PollingType.ANY,
         endpoint: Optional[str] = None,
+        metadata: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         retries: Optional[int] = -1,
     ) -> List[asyncio.Task]:
@@ -683,6 +685,7 @@ class GrpcConnectionPool:
         :param shard_id: Send to a specific shard of the deployment, ignored for polling ALL
         :param polling_type: defines if the request should be send to any or all pooled connections for the target
         :param endpoint: endpoint to target with the requests
+        :param metadata: metadata to send with the requests
         :param timeout: timeout for sending the requests
         :param retries: number of retries per gRPC call. If <0 it defaults to max(3, num_replicas)
         :return: list of asyncio.Task items for each send call
@@ -702,7 +705,12 @@ class GrpcConnectionPool:
 
         for replica_list in connections:
             task = self._send_requests(
-                requests, replica_list, endpoint, timeout=timeout, retries=retries
+                requests,
+                replica_list,
+                endpoint=endpoint,
+                metadata=metadata,
+                timeout=timeout,
+                retries=retries,
             )
             results.append(task)
 
@@ -796,7 +804,7 @@ class GrpcConnectionPool:
             return self._send_requests(
                 requests,
                 replicas,
-                endpoint,
+                endpoint=endpoint,
                 metadata=metadata,
                 timeout=timeout,
                 retries=retries,
@@ -912,8 +920,8 @@ class GrpcConnectionPool:
         self,
         requests: List[Request],
         connections: ReplicaList,
-        metadata: Optional[Dict[str, str]] = None,
         endpoint: Optional[str] = None,
+        metadata: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         retries: Optional[int] = -1,
     ) -> asyncio.Task:
@@ -927,9 +935,10 @@ class GrpcConnectionPool:
         if metadata:
             metadata = tuple(metadata.items())
 
-        print(f'===> send request to {endpoint} with metadata {metadata}')
-
         async def task_wrapper():
+            print(
+                f'===> send request to {endpoint} with metadata {metadata} => {requests[0].data.docs}'
+            )
             tried_addresses = set()
             if retries is None or retries < 0:
                 total_num_tries = (
