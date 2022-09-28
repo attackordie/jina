@@ -341,6 +341,14 @@ class Deployment(BaseDeployment):
         return getattr(self.args, 'external', False) or self.is_sandbox
 
     @property
+    def grpc_metadata(self):
+        """Get the metadata of this deployment.
+
+        :return: the metadata of this deployment
+        """
+        return getattr(self.args, 'grpc_metadata', {})
+
+    @property
     def protocol(self):
         """
         :return: the protocol of this deployment
@@ -674,7 +682,9 @@ class Deployment(BaseDeployment):
 
             selected_devices = []
             if device_str[2:]:
-                for device_num in Deployment._parse_devices(device_str[2:], num_devices):
+                for device_num in Deployment._parse_devices(
+                    device_str[2:], num_devices
+                ):
                     selected_devices.append(device_num)
             else:
                 selected_devices = range(num_devices)
